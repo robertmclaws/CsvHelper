@@ -60,7 +60,8 @@
 			"dependencies": {
 				"NETStandard.Library": "1.6.0",
 				"Microsoft.CSharp": "4.0.1",
-				"System.Reflection.TypeExtensions": "4.1.0"
+        "System.Reflection.TypeExtensions": "4.1.0",
+        "System.Linq":  "4.1.0"
 			}
 		}
 	}

@@ -438,9 +438,8 @@ namespace CsvHelper
 		/// Writes the list of records to the CSV file.
 		/// </summary>
 		/// <param name="records">The list of records to write.</param>
-		public virtual void WriteRecords( IEnumerable records )
+		public virtual void WriteRecords<T>( IEnumerable<T> records )
 		{
-			Type recordType = null;
 			try
 			{
 				if( configuration.HasExcelSeparator && !hasExcelSeperatorBeenRead )
@@ -450,55 +449,49 @@ namespace CsvHelper
                     hasExcelSeperatorBeenRead = true;
 				}
 
-				// Write the header. If records is a List<dynamic>, the header won't be written.
-				// This is because typeof( T ) = Object.
-				var genericEnumerable = records.GetType().GetInterfaces().FirstOrDefault( t => t.GetTypeInfo().IsGenericType && t.GetGenericTypeDefinition() == typeof( IEnumerable<> ) );
-				if( genericEnumerable != null )
+                // Write the header. If records is a List<dynamic>, the header won't be written.
+                // This is because typeof( T ) = Object.
+
+                var isDynamic = false;
+ 
+#if !NET_2_0 && !NET_3_5 && !PCL
+                var dynamicRecord = records.FirstOrDefault() as IDynamicMetaObjectProvider;
+                isDynamic = dynamicRecord != null;
+#endif
+                var isPrimitive = typeof(T).GetTypeInfo().IsPrimitive;
+
+                if ( configuration.HasHeaderRecord && !hasHeaderBeenWritten )
 				{
-					recordType = genericEnumerable.GetGenericArguments().Single();
-					var isPrimitive = recordType.GetTypeInfo().IsPrimitive;
-					if( configuration.HasHeaderRecord && !hasHeaderBeenWritten && !isPrimitive )
-					{
-						WriteHeader( recordType );
-                        if( hasHeaderBeenWritten )
-                        {
-                            NextRecord();
-                        }
-					}
+
+#if !NET_2_0 && !NET_3_5 && !PCL
+                    if ( dynamicRecord != null )
+                    {
+                        WriteDynamicHeader(dynamicRecord);
+                    }
+#endif
+
+                    if ( !hasHeaderBeenWritten && !isPrimitive )
+                    {
+                        WriteHeader(typeof(T));
+                    }
+
+                        if ( hasHeaderBeenWritten )
+                    {
+                        NextRecord();
+                    }
 				}
 
 				foreach( var record in records )
 				{
-					recordType = record.GetType();
 
 #if !NET_2_0 && !NET_3_5 && !PCL
-					var dynamicObject = record as IDynamicMetaObjectProvider;
-					if( dynamicObject != null )
-					{
-						if( configuration.HasHeaderRecord && !hasHeaderBeenWritten )
-						{
-							WriteDynamicHeader( dynamicObject );
-                            NextRecord();
-						}
-
-						if( !typeActions.ContainsKey( recordType ) )
-						{
-							CreateActionForDynamic( dynamicObject );
-						}
-					}
-					else
-					{
-#endif
-						// If records is a List<dynamic>, the header hasn't been written yet.
-						// Write the header based on the record type.
-						var isPrimitive = recordType.GetTypeInfo().IsPrimitive;
-						if( configuration.HasHeaderRecord && !hasHeaderBeenWritten && !isPrimitive )
-						{
-							WriteHeader( recordType );
-                            NextRecord();
-						}
-#if !NET_2_0 && !NET_3_5 && !PCL
-					}
+                    if (isDynamic)
+                    {
+                        if (!typeActions.ContainsKey( typeof(T) ) && !typeActions.ContainsKey( typeof(ExpandoObject) ) )
+                        {
+                            CreateActionForDynamic( record as IDynamicMetaObjectProvider );
+                        }
+                    }
 #endif
 
                     try
@@ -516,7 +509,7 @@ namespace CsvHelper
 			catch( Exception ex )
 			{
 				var csvHelperException = ex as CsvHelperException ?? new CsvHelperException( "An unexpected error occurred.", ex );
-				ExceptionHelper.AddExceptionData( csvHelperException, Row, recordType, null, null, currentRecord.ToArray() );
+				ExceptionHelper.AddExceptionData( csvHelperException, Row, typeof(T), null, null, currentRecord.ToArray() );
 
 				throw csvHelperException;
 			}

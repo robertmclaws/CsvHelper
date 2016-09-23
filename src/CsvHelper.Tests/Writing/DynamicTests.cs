@@ -59,5 +59,38 @@ namespace CsvHelper.Tests.Writing
 				Assert.AreEqual( expected, reader.ReadToEnd() );
 			}
 		}
-	}
+
+        [TestMethod]
+        public void ReadDynamicExpandoObjectsThenWriteBackTest()
+        {
+            List<dynamic> items = new List<dynamic>();
+
+            using (var reader = File.OpenText(@"C:\Users\rober\Documents\Lead.csv"))
+            {
+                using (var csvReader = new CsvReader(reader))
+                {
+                    var records = csvReader.GetRecords<dynamic>().ToList();
+                    items.AddRange(records);
+                }
+            }
+
+            Assert.AreNotEqual(items.Count, 0);
+
+            using (var output = File.OpenWrite(@"C:\Users\rober\Documents\Lead-Output.csv"))
+            {
+                using (var writer = new StreamWriter(output))
+                {
+                    using (var csvWriter = new CsvWriter(writer))
+                    {
+                        csvWriter.Configuration.QuoteAllFields = true;
+                        csvWriter.WriteRecords(items);
+                    }
+                }
+            }
+
+            
+
+        }
+
+    }
 }
